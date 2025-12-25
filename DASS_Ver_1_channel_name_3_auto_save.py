@@ -22,6 +22,7 @@ import threading
 import time
 import csv
 import os
+import random
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
@@ -752,7 +753,6 @@ class DASSApplication:
         """
         # Placeholder implementation
         # In real application, read from serial_handler or modbus_handler
-        import random
         return [random.uniform(0, 100) for _ in range(self.channel_count)]
 
     def _on_closing(self) -> None:
