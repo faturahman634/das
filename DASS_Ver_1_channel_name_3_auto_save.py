@@ -11,13 +11,40 @@ This module provides a complete GUI application for:
 - Multi-channel monitoring
 """
 
-import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
-import serial
-import serial.tools.list_ports
-from pymodbus.client import ModbusSerialClient
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
+import sys
+
+# Check for required dependencies
+try:
+    import tkinter as tk
+    from tkinter import ttk, scrolledtext, messagebox
+except ImportError:
+    print("ERROR: tkinter is not installed.")
+    print("Please install tkinter (usually included with Python).")
+    sys.exit(1)
+
+try:
+    import serial
+    import serial.tools.list_ports
+except ImportError:
+    print("ERROR: pyserial is not installed.")
+    print("Please install it with: pip install pyserial")
+    sys.exit(1)
+
+try:
+    from pymodbus.client import ModbusSerialClient
+except ImportError:
+    print("ERROR: pymodbus is not installed.")
+    print("Please install it with: pip install pymodbus")
+    sys.exit(1)
+
+try:
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+    from matplotlib.figure import Figure
+except ImportError:
+    print("ERROR: matplotlib is not installed.")
+    print("Please install it with: pip install matplotlib")
+    sys.exit(1)
+
 import threading
 import time
 import csv
