@@ -58,7 +58,7 @@ from typing import List, Optional, Dict, Any
 DEFAULT_BAUDRATE = 9600
 DEFAULT_TIMEOUT = 1
 DEFAULT_MODBUS_SLAVE_ID = 1
-DEFAULT_CHANNEL_COUNT = 3
+DEFAULT_CHANNEL_COUNT = 8  # Expanded to 8 channels
 MAX_SLAVE_IDS = 4
 MAX_ADDRESSES_PER_ID = 20
 MAX_DATA_POINTS = 100
@@ -396,6 +396,240 @@ class DataLogger:
             self.csv_writer = None
 
 
+class ChannelPlotWindow:
+    """
+    Individual plot window for a single channel.
+    Each channel gets its own dedicated plot window.
+    """
+
+    def __init__(self, channel_index: int, channel_name: str):
+        """
+        Initialize a channel plot window.
+
+        Args:
+            channel_index: Index of the channel
+            channel_name: Name of the channel
+        """
+        self.channel_index = channel_index
+        self.channel_name = channel_name
+        self.data_buffer: List[float] = []
+        self.window: Optional[tk.Toplevel] = None
+        self.figure: Optional[Figure] = None
+        self.ax: Optional[Any] = None
+        self.line: Optional[Any] = None
+        self.canvas: Optional[Any] = None
+        self.is_visible = False
+
+    def show(self, parent: tk.Tk) -> None:
+        """
+        Show the plot window.
+
+        Args:
+            parent: Parent window
+        """
+        if self.window and self.is_visible:
+            self.window.lift()
+            return
+
+        self.window = tk.Toplevel(parent)
+        self.window.title(f"Channel {self.channel_index + 1}: {self.channel_name}")
+        self.window.geometry("600x400")
+
+        # Create matplotlib figure
+        self.figure = Figure(figsize=(6, 4), dpi=100)
+        self.ax = self.figure.add_subplot(111)
+
+        # Initialize plot line
+        colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k', 'orange']
+        color = colors[self.channel_index % len(colors)]
+        self.line, = self.ax.plot([], [], f'{color}-', linewidth=2)
+
+        self.ax.set_xlabel('Sample')
+        self.ax.set_ylabel('Value')
+        self.ax.set_title(f'{self.channel_name}')
+        self.ax.grid(True)
+
+        # Create canvas
+        self.canvas = FigureCanvasTkAgg(self.figure, self.window)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        self.is_visible = True
+        self.window.protocol("WM_DELETE_WINDOW", self.hide)
+
+    def hide(self) -> None:
+        """Hide the plot window."""
+        if self.window:
+            self.window.withdraw()
+            self.is_visible = False
+
+    def update_data(self, value: float) -> None:
+        """
+        Update data for this channel.
+
+        Args:
+            value: New data value
+        """
+        self.data_buffer.append(value)
+
+        # Keep only recent data points
+        if len(self.data_buffer) > MAX_DATA_POINTS:
+            self.data_buffer.pop(0)
+
+    def refresh_plot(self) -> None:
+        """Refresh the plot with current data."""
+        if not self.is_visible or not self.line:
+            return
+
+        if self.data_buffer:
+            x_data = list(range(len(self.data_buffer)))
+            self.line.set_data(x_data, self.data_buffer)
+
+            # Auto-scale axes
+            self.ax.relim()
+            self.ax.autoscale_view()
+
+            try:
+                self.canvas.draw()
+            except Exception:
+                pass  # Ignore drawing errors
+
+    def close(self) -> None:
+        """Close the plot window."""
+        if self.window:
+            self.window.destroy()
+            self.window = None
+            self.is_visible = False
+
+
+class NumericDisplayWindow:
+    """
+    Separate window showing numeric values for all channels.
+    """
+
+    def __init__(self, channel_count: int):
+        """
+        Initialize numeric display window.
+
+        Args:
+            channel_count: Number of channels to display
+        """
+        self.channel_count = channel_count
+        self.window: Optional[tk.Toplevel] = None
+        self.value_labels: List[tk.Label] = []
+        self.name_labels: List[tk.Label] = []
+        self.is_visible = False
+
+    def show(self, parent: tk.Tk, channel_names: List[str]) -> None:
+        """
+        Show the numeric display window.
+
+        Args:
+            parent: Parent window
+            channel_names: List of channel names
+        """
+        if self.window and self.is_visible:
+            self.window.lift()
+            return
+
+        self.window = tk.Toplevel(parent)
+        self.window.title("Numeric Display - All Channels")
+        self.window.geometry("500x400")
+
+        # Create header
+        header_frame = tk.Frame(self.window, bg='#2c3e50', pady=10)
+        header_frame.pack(fill=tk.X)
+        tk.Label(
+            header_frame, text="Real-Time Channel Values",
+            font=('Arial', 14, 'bold'), bg='#2c3e50', fg='white'
+        ).pack()
+
+        # Create scrollable frame
+        canvas = tk.Canvas(self.window)
+        scrollbar = tk.Scrollbar(self.window, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Create grid for channels
+        self.value_labels = []
+        self.name_labels = []
+
+        for i in range(self.channel_count):
+            # Channel frame
+            ch_frame = tk.Frame(scrollable_frame, relief=tk.RAISED, borderwidth=2, pady=10, padx=10)
+            ch_frame.grid(row=i, column=0, sticky='ew', padx=10, pady=5)
+            scrollable_frame.columnconfigure(0, weight=1)
+
+            # Channel name
+            name_label = tk.Label(
+                ch_frame,
+                text=channel_names[i] if i < len(channel_names) else f"Channel {i+1}",
+                font=('Arial', 11, 'bold'),
+                anchor='w'
+            )
+            name_label.pack(side=tk.LEFT, padx=10)
+            self.name_labels.append(name_label)
+
+            # Channel value
+            value_label = tk.Label(
+                ch_frame,
+                text="--",
+                font=('Arial', 16, 'bold'),
+                fg='#2ecc71',
+                width=15,
+                anchor='e'
+            )
+            value_label.pack(side=tk.RIGHT, padx=10)
+            self.value_labels.append(value_label)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        self.is_visible = True
+        self.window.protocol("WM_DELETE_WINDOW", self.hide)
+
+    def hide(self) -> None:
+        """Hide the numeric display window."""
+        if self.window:
+            self.window.withdraw()
+            self.is_visible = False
+
+    def update_value(self, channel_index: int, value: float) -> None:
+        """
+        Update a channel's numeric display.
+
+        Args:
+            channel_index: Index of the channel
+            value: New value
+        """
+        if 0 <= channel_index < len(self.value_labels) and self.is_visible:
+            self.value_labels[channel_index].config(text=f"{value:.2f}")
+
+    def update_channel_name(self, channel_index: int, name: str) -> None:
+        """
+        Update a channel's name.
+
+        Args:
+            channel_index: Index of the channel
+            name: New name
+        """
+        if 0 <= channel_index < len(self.name_labels):
+            self.name_labels[channel_index].config(text=name)
+
+    def close(self) -> None:
+        """Close the numeric display window."""
+        if self.window:
+            self.window.destroy()
+            self.window = None
+            self.is_visible = False
+
+
 class PlotManager:
     """
     Manages real-time plotting of data channels.
@@ -687,9 +921,21 @@ class DASSApplication:
         self.acquisition_thread: Optional[threading.Thread] = None
         self.channel_count = DEFAULT_CHANNEL_COUNT
         self.channel_entries: List[tk.Entry] = []
-        self.channel_value_labels: List[tk.Label] = []  # For numeric display
+        self.channel_value_labels: List[tk.Label] = []  # For numeric display in main window
         self.csv_filename_var = tk.StringVar()  # For custom CSV filename
         self.modbus_configs: List[Dict[str, Any]] = []  # ModBus configurations
+
+        # Multi-window components
+        self.channel_plot_windows: List[ChannelPlotWindow] = []
+        self.numeric_display_window: Optional[NumericDisplayWindow] = None
+
+        # Initialize plot windows for each channel
+        for i in range(self.channel_count):
+            plot_window = ChannelPlotWindow(i, f"Channel_{i+1}")
+            self.channel_plot_windows.append(plot_window)
+
+        # Initialize numeric display window
+        self.numeric_display_window = NumericDisplayWindow(self.channel_count)
 
         # Build UI
         self._create_ui()
@@ -962,12 +1208,59 @@ class DASSApplication:
         )
         self.config_plot_btn.pack(side=tk.LEFT, padx=5)
 
-    def _create_plot_section(self, parent: tk.Frame) -> None:
-        """Create plot section."""
-        frame = tk.LabelFrame(parent, text="Real-time Plot", padx=5, pady=5)
-        frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        # Window management controls
+        window_btn_frame = tk.Frame(frame)
+        window_btn_frame.pack(pady=5)
 
-        self.plot_manager = PlotManager(frame, self.channel_count)
+        tk.Label(
+            window_btn_frame, text="Windows:", font=('Arial', 10, 'bold')
+        ).pack(side=tk.LEFT, padx=5)
+
+        self.show_numeric_btn = tk.Button(
+            window_btn_frame, text="Show Numeric Display",
+            command=self._on_show_numeric_window,
+            width=20
+        )
+        self.show_numeric_btn.pack(side=tk.LEFT, padx=5)
+
+        self.show_all_plots_btn = tk.Button(
+            window_btn_frame, text="Show All Plots",
+            command=self._on_show_all_plots,
+            width=15
+        )
+        self.show_all_plots_btn.pack(side=tk.LEFT, padx=5)
+
+        self.hide_all_plots_btn = tk.Button(
+            window_btn_frame, text="Hide All Plots",
+            command=self._on_hide_all_plots,
+            width=15
+        )
+        self.hide_all_plots_btn.pack(side=tk.LEFT, padx=5)
+
+    def _create_plot_section(self, parent: tk.Frame) -> None:
+        """Create plot section with individual channel controls."""
+        frame = tk.LabelFrame(parent, text="Plot Windows", padx=10, pady=10)
+        frame.pack(fill=tk.X, pady=5)
+
+        tk.Label(
+            frame, text="Click to show/hide individual channel plots:",
+            font=('Arial', 10)
+        ).pack(pady=5)
+
+        # Create button grid for individual channel plots
+        button_frame = tk.Frame(frame)
+        button_frame.pack(pady=5)
+
+        for i in range(self.channel_count):
+            btn = tk.Button(
+                button_frame,
+                text=f"Ch{i+1} Plot",
+                command=lambda idx=i: self._toggle_channel_plot(idx),
+                width=12
+            )
+            row = i // 4
+            col = i % 4
+            btn.grid(row=row, column=col, padx=3, pady=3)
 
     def _create_log_section(self, parent: tk.Frame) -> None:
         """Create log section."""
@@ -1092,15 +1385,15 @@ class DASSApplication:
                     # Log data
                     self.data_logger.log_data(data)
 
-                    # Update plot
+                    # Update individual channel plot windows
                     for i, value in enumerate(data):
-                        self.plot_manager.update_data(i, value)
+                        if i < len(self.channel_plot_windows):
+                            self.channel_plot_windows[i].update_data(value)
+                            # Refresh plot on main thread
+                            self.root.after(0, self.channel_plot_windows[i].refresh_plot)
 
                     # Update numeric displays (on main thread)
                     self.root.after(0, lambda d=data: self._update_numeric_displays(d))
-
-                    # Refresh plot (on main thread)
-                    self.root.after(0, self.plot_manager.refresh_plot)
 
                 time.sleep(0.1)  # Acquisition rate
 
@@ -1109,10 +1402,16 @@ class DASSApplication:
                 time.sleep(1)
 
     def _update_numeric_displays(self, data: List[float]) -> None:
-        """Update numeric value displays."""
+        """Update numeric value displays in all windows."""
+        # Update main window displays
         for i, value in enumerate(data):
             if i < len(self.channel_value_labels):
                 self.channel_value_labels[i].config(text=f"{value:.2f}")
+
+        # Update numeric display window
+        if self.numeric_display_window and self.numeric_display_window.is_visible:
+            for i, value in enumerate(data):
+                self.numeric_display_window.update_value(i, value)
 
     def _read_data(self) -> List[float]:
         """
@@ -1137,17 +1436,38 @@ class DASSApplication:
         return [random.uniform(0, 100) for _ in range(self.channel_count)]
 
     def _on_print_plot(self) -> None:
-        """Handle print plot button click."""
+        """Handle print plot button click - prints all visible plots."""
         try:
-            self.plot_manager.print_plot()
-            self._log_message("Plot sent to printer")
+            count = 0
+            for plot_window in self.channel_plot_windows:
+                if plot_window.is_visible and plot_window.figure:
+                    # Simple approach: save each visible plot
+                    from matplotlib.backends.backend_pdf import PdfPages
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+                        tmp_path = tmp.name
+                    with PdfPages(tmp_path) as pdf:
+                        pdf.savefig(plot_window.figure)
+                    import platform
+                    if platform.system() == 'Windows':
+                        os.startfile(tmp_path, 'print')
+                    count += 1
+            if count > 0:
+                self._log_message(f"{count} plot(s) sent to printer")
+            else:
+                self.ui_manager.show_info("No Plots", "No visible plots to print. Open plots first.")
         except Exception as e:
-            self.ui_manager.show_error("Print Error", f"Failed to print plot: {str(e)}")
+            self.ui_manager.show_error("Print Error", f"Failed to print plots: {str(e)}")
             self._log_message(f"Print error: {str(e)}")
 
     def _on_save_plot(self) -> None:
-        """Handle save plot button click."""
+        """Handle save plot button click - saves all visible plots."""
         try:
+            visible_plots = [p for p in self.channel_plot_windows if p.is_visible]
+            if not visible_plots:
+                self.ui_manager.show_info("No Plots", "No visible plots to save. Open plots first.")
+                return
+
             filename = filedialog.asksaveasfilename(
                 defaultextension=".png",
                 filetypes=[
@@ -1158,24 +1478,62 @@ class DASSApplication:
                 ]
             )
             if filename:
-                self.plot_manager.save_plot_image(filename)
-                self._log_message(f"Plot saved to: {filename}")
-                self.ui_manager.show_info("Success", f"Plot saved to:\n{filename}")
+                # Save all visible plots with numbered filenames
+                base_name, ext = os.path.splitext(filename)
+                for i, plot_window in enumerate(visible_plots):
+                    if plot_window.figure:
+                        if len(visible_plots) > 1:
+                            save_name = f"{base_name}_ch{plot_window.channel_index+1}{ext}"
+                        else:
+                            save_name = filename
+                        plot_window.figure.savefig(save_name, dpi=300, bbox_inches='tight')
+                self._log_message(f"{len(visible_plots)} plot(s) saved")
+                self.ui_manager.show_info("Success", f"{len(visible_plots)} plot(s) saved successfully")
         except Exception as e:
-            self.ui_manager.show_error("Save Error", f"Failed to save plot: {str(e)}")
+            self.ui_manager.show_error("Save Error", f"Failed to save plots: {str(e)}")
             self._log_message(f"Save error: {str(e)}")
 
     def _on_configure_plot(self) -> None:
-        """Handle configure plot button click."""
+        """Handle configure plot button click - shows dialog to select which plot to configure."""
+        visible_plots = [p for p in self.channel_plot_windows if p.is_visible]
+        if not visible_plots:
+            self.ui_manager.show_info("No Plots", "No visible plots to configure. Open plots first.")
+            return
+
         dialog = tk.Toplevel(self.root)
         dialog.title("Configure Plot")
+        dialog.geometry("400x300")
+
+        tk.Label(dialog, text="Select channel to configure:", font=('Arial', 11, 'bold')).pack(pady=10)
+
+        # List of visible channels
+        listbox = tk.Listbox(dialog, height=8)
+        listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        for plot_window in visible_plots:
+            listbox.insert(tk.END, f"Channel {plot_window.channel_index+1}: {plot_window.channel_name}")
+
+        def configure_selected():
+            selection = listbox.curselection()
+            if not selection:
+                return
+            plot_window = visible_plots[selection[0]]
+            dialog.destroy()
+            self._configure_individual_plot(plot_window)
+
+        tk.Button(dialog, text="Configure", command=configure_selected, width=15).pack(pady=10)
+
+    def _configure_individual_plot(self, plot_window: ChannelPlotWindow) -> None:
+        """Configure an individual plot window."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Configure Channel {plot_window.channel_index+1}")
         dialog.geometry("400x250")
 
         # Title
         tk.Label(dialog, text="Plot Title:").grid(row=0, column=0, padx=10, pady=10, sticky='w')
         title_entry = tk.Entry(dialog, width=30)
         title_entry.grid(row=0, column=1, padx=10, pady=10)
-        title_entry.insert(0, "Real-time Data Plot")
+        title_entry.insert(0, plot_window.channel_name)
 
         # X Label
         tk.Label(dialog, text="X-axis Label:").grid(row=1, column=0, padx=10, pady=10, sticky='w')
@@ -1197,23 +1555,79 @@ class DASSApplication:
 
         # Apply button
         def apply_config():
-            self.plot_manager.configure_plot(
-                title=title_entry.get(),
-                xlabel=xlabel_entry.get(),
-                ylabel=ylabel_entry.get(),
-                grid=grid_var.get()
-            )
-            self._log_message("Plot configuration updated")
+            if plot_window.ax:
+                plot_window.ax.set_title(title_entry.get())
+                plot_window.ax.set_xlabel(xlabel_entry.get())
+                plot_window.ax.set_ylabel(ylabel_entry.get())
+                plot_window.ax.grid(grid_var.get())
+                plot_window.channel_name = title_entry.get()
+                if plot_window.window:
+                    plot_window.window.title(f"Channel {plot_window.channel_index+1}: {title_entry.get()}")
+                plot_window.refresh_plot()
+            self._log_message(f"Channel {plot_window.channel_index+1} plot configuration updated")
             dialog.destroy()
 
         tk.Button(dialog, text="Apply", command=apply_config, width=15).grid(
             row=4, column=0, columnspan=2, pady=10
         )
 
+    def _on_show_numeric_window(self) -> None:
+        """Show the numeric display window."""
+        channel_names = [entry.get() for entry in self.channel_entries]
+        self.numeric_display_window.show(self.root, channel_names)
+        self._log_message("Numeric display window shown")
+
+    def _on_show_all_plots(self) -> None:
+        """Show all channel plot windows."""
+        for i, plot_window in enumerate(self.channel_plot_windows):
+            if i < len(self.channel_entries):
+                channel_name = self.channel_entries[i].get()
+            else:
+                channel_name = f"Channel_{i+1}"
+            plot_window.channel_name = channel_name
+            plot_window.show(self.root)
+        self._log_message("All plot windows shown")
+
+    def _on_hide_all_plots(self) -> None:
+        """Hide all channel plot windows."""
+        for plot_window in self.channel_plot_windows:
+            plot_window.hide()
+        self._log_message("All plot windows hidden")
+
+    def _toggle_channel_plot(self, channel_index: int) -> None:
+        """
+        Toggle a specific channel's plot window.
+
+        Args:
+            channel_index: Index of the channel
+        """
+        if channel_index < len(self.channel_plot_windows):
+            plot_window = self.channel_plot_windows[channel_index]
+            if channel_index < len(self.channel_entries):
+                channel_name = self.channel_entries[channel_index].get()
+            else:
+                channel_name = f"Channel_{channel_index+1}"
+            plot_window.channel_name = channel_name
+
+            if plot_window.is_visible:
+                plot_window.hide()
+                self._log_message(f"Channel {channel_index+1} plot hidden")
+            else:
+                plot_window.show(self.root)
+                self._log_message(f"Channel {channel_index+1} plot shown")
+
     def _on_closing(self) -> None:
         """Handle window close event."""
         if self.acquisition_active:
             self._on_stop_acquisition()
+
+        # Close all plot windows
+        for plot_window in self.channel_plot_windows:
+            plot_window.close()
+
+        # Close numeric display window
+        if self.numeric_display_window:
+            self.numeric_display_window.close()
 
         self.serial_handler.disconnect()
         self.modbus_handler.disconnect()
