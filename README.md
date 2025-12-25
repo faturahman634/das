@@ -8,12 +8,26 @@ DASS is a Python-based GUI application designed for real-time data acquisition, 
 
 ## Features
 
+### Core Capabilities
 - **Modular Architecture**: Separate classes for serial communication, Modbus protocol, data logging, plotting, and UI management
 - **Serial Port Communication**: Full support for serial port connections with configurable baud rates
-- **Modbus Support**: ModBus RTU protocol support for industrial devices
-- **Real-time Plotting**: Live visualization of up to 3 data channels with automatic scaling
+- **Real-time Plotting**: Live visualization of multiple data channels with automatic scaling
 - **Automatic Data Logging**: CSV-based logging with timestamps and configurable channel names
 - **User-friendly GUI**: Intuitive Tkinter-based interface with activity logging
+
+### Advanced ModBus Support
+- **Multiple Slave IDs**: Support for up to 4 ModBus slave devices
+- **Multiple Addresses**: Up to 20 register addresses per slave ID
+- **Flexible Data Types**: INT16, UINT16, INT32, UINT32, FLOAT32
+- **16/32-bit Support**: Configurable register width for each address
+- **Easy Configuration**: GUI dialog for setting up ModBus parameters
+
+### Data Visualization & Export
+- **Numeric Displays**: Real-time numeric value display for each channel
+- **Plot Printing**: Direct print functionality for plots
+- **Plot Export**: Save plots as PNG, PDF, or SVG
+- **Manual Plot Setup**: Configure plot title, labels, and grid
+- **Custom CSV Naming**: Optional custom filenames for log files
 
 ## Architecture
 
@@ -87,6 +101,8 @@ python DASS_Ver_1_channel_name_3_auto_save.py
 
 ### Using the Application
 
+#### Basic Setup
+
 1. **Connect to Device**:
    - Select connection type (Serial or ModBus)
    - Choose the appropriate COM port
@@ -94,17 +110,54 @@ python DASS_Ver_1_channel_name_3_auto_save.py
    - Click "Connect"
 
 2. **Configure Channels**:
-   - Enter custom names for each channel (up to 3 channels)
+   - Enter custom names for each channel
+   - View real-time numeric values during acquisition
    - Names will be used in logs and plots
 
 3. **Start Acquisition**:
+   - (Optional) Enter a custom CSV filename
    - Click "Start Acquisition" to begin data collection
    - Data is automatically logged to CSV files in the `logs/` directory
-   - Real-time plot updates as data is acquired
+   - Real-time plot and numeric displays update as data is acquired
 
 4. **Stop Acquisition**:
    - Click "Stop Acquisition" to end data collection
    - Log files are automatically saved
+
+#### Advanced ModBus Configuration
+
+1. **Open ModBus Configuration**:
+   - Click "Configure ModBus Addresses" button
+   - A dialog with tabs for 4 slave IDs will open
+
+2. **Configure Addresses**:
+   - Select a Slave ID tab (1-4)
+   - For each address you want to monitor:
+     - Enter the register address
+     - Select data type (INT16, UINT16, INT32, UINT32, FLOAT32)
+     - Enter a channel name
+     - Check the "Enable" box
+
+3. **Save Configuration**:
+   - Click "Save Configuration"
+   - Status shows number of configured addresses
+   - Configured addresses will be read during acquisition
+
+#### Plot Management
+
+- **Print Plot**: Click "Print Plot" to send the current plot to your default printer
+- **Save Plot**: Click "Save Plot" and choose format (PNG, PDF, or SVG)
+- **Configure Plot**: Click "Configure Plot" to customize:
+  - Plot title
+  - X-axis label
+  - Y-axis label
+  - Grid on/off
+
+#### Custom CSV Filenames
+
+- Enter a custom filename in the "CSV Filename" field (optional)
+- Leave empty for automatic timestamp-based naming
+- Extension `.csv` is added automatically
 
 ## Code Quality
 
