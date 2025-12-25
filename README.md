@@ -34,17 +34,48 @@ The application is organized into the following classes:
 - pymodbus >= 3.0.0
 - matplotlib >= 3.5.0
 
-## Installation
+## Download
 
-1. Clone the repository:
+### Option 1: Clone with Git (Recommended)
+
+If you have Git installed:
+
 ```bash
 git clone https://github.com/faturahman634/das.git
 cd das
 ```
 
-2. Install dependencies:
+### Option 2: Download ZIP File
+
+If you don't have Git:
+
+1. Go to https://github.com/faturahman634/das
+2. Click the green **"Code"** button
+3. Select **"Download ZIP"**
+4. Extract the ZIP file to your desired location
+5. Open a terminal/command prompt in the extracted folder
+
+### Option 3: Download Single File
+
+For quick testing, download just the main file:
+
+1. Go to https://github.com/faturahman634/das/blob/main/DASS_Ver_1_channel_name_3_auto_save.py
+2. Click the **"Raw"** button
+3. Right-click and **"Save As"** to save the file
+4. Install dependencies manually (see below)
+
+## Installation
+
+After downloading, install the required dependencies:
+
 ```bash
 pip install -r requirements.txt
+```
+
+Or install manually:
+
+```bash
+pip install pyserial pymodbus matplotlib
 ```
 
 ## Usage
