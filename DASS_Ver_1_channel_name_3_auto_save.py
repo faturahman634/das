@@ -751,8 +751,11 @@ class DASSApplication:
         Returns:
             List of channel values
         """
-        # Placeholder implementation
-        # In real application, read from serial_handler or modbus_handler
+        # TODO: Replace with actual device reading implementation
+        # For now, returns simulated data for demonstration purposes
+        # In production, replace with:
+        #   - serial_handler.read() for serial communication
+        #   - modbus_handler.read_holding_registers() for ModBus devices
         return [random.uniform(0, 100) for _ in range(self.channel_count)]
 
     def _on_closing(self) -> None:

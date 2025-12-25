@@ -40,6 +40,8 @@ def test_class_structure():
             return False
 
         dass = importlib.util.module_from_spec(spec)
+        # Execute the module to load its content
+        spec.loader.exec_module(dass)
 
         # Check for expected classes
         expected_classes = [
@@ -110,11 +112,14 @@ def test_documentation():
             return False
 
         # Count docstrings
+        # Expected: 6+ classes + 40+ methods = ~50 docstrings minimum
+        MIN_EXPECTED_DOCSTRINGS = 40
         docstring_count = content.count('"""')
-        if docstring_count > 20:  # Expect many docstrings
-            print(f"✓ Found {docstring_count // 2} docstrings")
+        actual_docstrings = docstring_count // 2
+        if actual_docstrings >= MIN_EXPECTED_DOCSTRINGS:
+            print(f"✓ Found {actual_docstrings} docstrings (expected >= {MIN_EXPECTED_DOCSTRINGS})")
         else:
-            print(f"✗ Insufficient documentation (found {docstring_count // 2} docstrings)")
+            print(f"✗ Insufficient documentation (found {actual_docstrings}, expected >= {MIN_EXPECTED_DOCSTRINGS})")
             return False
 
         print("✓ Documentation adequate")
