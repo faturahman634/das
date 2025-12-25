@@ -23,22 +23,35 @@ DASS is a Python-based GUI application designed for real-time data acquisition, 
 - **Easy Configuration**: GUI dialog for setting up ModBus parameters
 
 ### Data Visualization & Export
-- **Numeric Displays**: Real-time numeric value display for each channel
+- **8 Channel Support**: Monitor up to 8 data channels simultaneously
+- **Signal Conditioning**: Per-channel Zero offset, Multiplier, and Gain adjustment
+- **Unified Plot**: Single real-time plot showing all 8 channels with color-coding
+- **Numeric Displays**: Real-time numeric value display for each channel in main window
+- **Separate Numeric Window**: Dedicated window with large numeric displays
 - **Plot Printing**: Direct print functionality for plots
-- **Plot Export**: Save plots as PNG, PDF, or SVG
+- **Plot Export**: Save plots as PNG, PDF, or SVG (300 DPI)
 - **Manual Plot Setup**: Configure plot title, labels, and grid
 - **Custom CSV Naming**: Optional custom filenames for log files
+
+### Signal Conditioning
+Each of the 8 channels has configurable signal conditioning parameters:
+- **Zero Offset**: Baseline adjustment (add/subtract from raw value)
+- **Multiplier**: Scale factor for the signal
+- **Gain**: Amplification factor
+
+Formula applied: `Display Value = (Raw Value + Zero) × Multiplier × Gain`
 
 ## Architecture
 
 The application is organized into the following classes:
 
 - `SerialHandler`: Manages serial port connections and data transfer
-- `ModbusHandler`: Handles ModBus protocol communication
-- `DataLogger`: Manages CSV file logging with timestamps
-- `PlotManager`: Real-time plotting with matplotlib integration
+- `ModbusHandler`: Handles ModBus protocol communication with data type conversion
+- `DataLogger`: Manages CSV file logging with timestamps and custom filenames
+- `PlotManager`: Real-time unified plotting with matplotlib integration for all 8 channels
+- `NumericDisplayWindow`: Separate window for large numeric value displays
 - `UIManager`: Centralized UI component creation and management
-- `DASSApplication`: Main application controller coordinating all components
+- `DASSApplication`: Main application controller coordinating all components with signal conditioning
 
 ## Requirements
 
