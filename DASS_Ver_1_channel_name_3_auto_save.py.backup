@@ -536,61 +536,54 @@ class PlotManager:
     Handles multiple channels with automatic color assignment.
     """
 
-    def __init__(self, parent_frame: tk.Frame, channel_count: int, channel_names: List[str] = None):
+    def __init__(self, parent_frame: tk.Frame, channel_count: int):
         """
         Initialize the plot manager.
 
         Args:
             parent_frame: Tkinter frame to embed the plot
             channel_count: Number of data channels to plot
-            channel_names: Optional list of channel names for legend
         """
         self.channel_count = channel_count
         self.data_buffers: List[List[float]] = [[] for _ in range(channel_count)]
-        
-        if channel_names is None:
-            channel_names = [f'Channel {i+1}' for i in range(channel_count)]
 
         # Create matplotlib figure
-        self.figure = Figure(figsize=(10, 5), dpi=100)
+        self.figure = Figure(figsize=(8, 4), dpi=100)
         self.ax = self.figure.add_subplot(111)
         self.lines: List[Any] = []
 
-        # Initialize plot lines with channel names
-        colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k', 'orange']
+        # Initialize plot lines
+        colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k']
         for i in range(channel_count):
             color = colors[i % len(colors)]
-            line, = self.ax.plot([], [], f'{color}-', label=channel_names[i], linewidth=1.5)
+            line, = self.ax.plot([], [], f'{color}-', label=f'Channel {i+1}')
             self.lines.append(line)
 
         self.ax.set_xlabel('Sample')
         self.ax.set_ylabel('Value')
-        self.ax.set_title('Real-time Data Acquisition - All Channels')
-        self.ax.legend(loc='upper left', fontsize=8)
-        self.ax.grid(True, alpha=0.3)
+        self.ax.set_title('Real-time Data Plot')
+        self.ax.legend()
+        self.ax.grid(True)
 
-        # Create canvas and draw initial plot
+        # Create canvas
         self.canvas = FigureCanvasTkAgg(self.figure, parent_frame)
-        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-    def update_data(self, values: List[float]) -> None:
+    def update_data(self, channel_index: int, value: float) -> None:
         """
-        Update data for all channels.
+        Update data for a specific channel.
 
         Args:
-            values: List of values for all channels
+            channel_index: Index of the channel
+            value: New data value
         """
-        for i, value in enumerate(values):
-            if i < self.channel_count:
-                buffer = self.data_buffers[i]
-                buffer.append(value)
+        if 0 <= channel_index < self.channel_count:
+            buffer = self.data_buffers[channel_index]
+            buffer.append(value)
 
-                # Keep only recent data points
-                if len(buffer) > MAX_DATA_POINTS:
-                    buffer.pop(0)
-        
-        # Auto-refresh after update
-        self.refresh_plot()
+            # Keep only recent data points
+            if len(buffer) > MAX_DATA_POINTS:
+                buffer.pop(0)
 
     def refresh_plot(self) -> None:
         """Refresh the plot with current data."""
@@ -1040,69 +1033,30 @@ class DASSApplication:
         dialog.destroy()
 
     def _create_channel_section(self, parent: tk.Frame) -> None:
-        """Create channel configuration section with signal conditioning."""
+        """Create channel configuration section with numeric displays."""
         frame = tk.LabelFrame(parent, text="Channel Configuration", padx=10, pady=10)
         frame.pack(fill=tk.X, pady=5)
 
-        # Create scrollable frame for channels
-        canvas = tk.Canvas(frame, height=200)
-        scrollbar = tk.Scrollbar(frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
         # Header
-        tk.Label(scrollable_frame, text="Channel", width=10).grid(row=0, column=0, padx=3)
-        tk.Label(scrollable_frame, text="Name", width=15).grid(row=0, column=1, padx=3)
-        tk.Label(scrollable_frame, text="Zero", width=8).grid(row=0, column=2, padx=3)
-        tk.Label(scrollable_frame, text="Multiplier", width=10).grid(row=0, column=3, padx=3)
-        tk.Label(scrollable_frame, text="Gain", width=8).grid(row=0, column=4, padx=3)
-        tk.Label(scrollable_frame, text="Current Value", width=12).grid(row=0, column=5, padx=3)
+        tk.Label(frame, text="Channel Name", width=20).grid(row=0, column=0, padx=5)
+        tk.Label(frame, text="Current Value", width=15).grid(row=0, column=1, padx=5)
 
-        # Create channel configuration rows
+        # Create channel name entries and value displays
         for i in range(self.channel_count):
-            # Channel number
-            tk.Label(scrollable_frame, text=f"Ch {i+1}").grid(row=i+1, column=0, padx=3, pady=2)
-
             # Name entry
-            entry = tk.Entry(scrollable_frame, width=15)
-            entry.grid(row=i+1, column=1, padx=3, pady=2)
+            entry = tk.Entry(frame, width=20)
+            entry.grid(row=i+1, column=0, padx=5, pady=2)
             entry.insert(0, f"Channel_{i+1}")
             self.channel_entries.append(entry)
 
-            # Zero offset
-            zero_entry = tk.Entry(scrollable_frame, textvariable=self.channel_zero[i], width=8)
-            zero_entry.grid(row=i+1, column=2, padx=3, pady=2)
-
-            # Multiplier
-            mult_entry = tk.Entry(
-                scrollable_frame,
-                textvariable=self.channel_multiplier[i],
-                width=10
-            )
-            mult_entry.grid(row=i+1, column=3, padx=3, pady=2)
-
-            # Gain
-            gain_entry = tk.Entry(scrollable_frame, textvariable=self.channel_gain[i], width=8)
-            gain_entry.grid(row=i+1, column=4, padx=3, pady=2)
-
             # Value display
             value_label = tk.Label(
-                scrollable_frame, text="--", width=12,
+                frame, text="--", width=15,
                 relief=tk.SUNKEN, bg='white',
-                font=('Arial', 9, 'bold')
+                font=('Arial', 10, 'bold')
             )
-            value_label.grid(row=i+1, column=5, padx=3, pady=2)
+            value_label.grid(row=i+1, column=1, padx=5, pady=2)
             self.channel_value_labels.append(value_label)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
 
     def _create_control_section(self, parent: tk.Frame) -> None:
         """Create acquisition control section."""
@@ -1164,6 +1118,10 @@ class DASSApplication:
         window_btn_frame = tk.Frame(frame)
         window_btn_frame.pack(pady=5)
 
+        tk.Label(
+            window_btn_frame, text="Windows:", font=('Arial', 10, 'bold')
+        ).pack(side=tk.LEFT, padx=5)
+
         self.show_numeric_btn = tk.Button(
             window_btn_frame, text="Show Numeric Display",
             command=self._on_show_numeric_window,
@@ -1171,15 +1129,44 @@ class DASSApplication:
         )
         self.show_numeric_btn.pack(side=tk.LEFT, padx=5)
 
-    def _create_plot_section(self, parent: tk.Frame) -> None:
-        """Create plot section with embedded plot."""
-        frame = tk.LabelFrame(parent, text="Real-Time Plot", padx=10, pady=10)
-        frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        self.show_all_plots_btn = tk.Button(
+            window_btn_frame, text="Show All Plots",
+            command=self._on_show_all_plots,
+            width=15
+        )
+        self.show_all_plots_btn.pack(side=tk.LEFT, padx=5)
 
-        # Create embedded PlotManager
-        channel_names = [f"Channel_{i+1}" for i in range(self.channel_count)]
-        self.plot_manager = PlotManager(frame, self.channel_count, channel_names)
-        self.plot_manager.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.hide_all_plots_btn = tk.Button(
+            window_btn_frame, text="Hide All Plots",
+            command=self._on_hide_all_plots,
+            width=15
+        )
+        self.hide_all_plots_btn.pack(side=tk.LEFT, padx=5)
+
+    def _create_plot_section(self, parent: tk.Frame) -> None:
+        """Create plot section with individual channel controls."""
+        frame = tk.LabelFrame(parent, text="Plot Windows", padx=10, pady=10)
+        frame.pack(fill=tk.X, pady=5)
+
+        tk.Label(
+            frame, text="Click to show/hide individual channel plots:",
+            font=('Arial', 10)
+        ).pack(pady=5)
+
+        # Create button grid for individual channel plots
+        button_frame = tk.Frame(frame)
+        button_frame.pack(pady=5)
+
+        for i in range(self.channel_count):
+            btn = tk.Button(
+                button_frame,
+                text=f"Ch{i+1} Plot",
+                command=lambda idx=i: self._toggle_channel_plot(idx),
+                width=12
+            )
+            row = i // 4
+            col = i % 4
+            btn.grid(row=row, column=col, padx=3, pady=3)
 
     def _create_log_section(self, parent: tk.Frame) -> None:
         """Create log section."""
@@ -1297,36 +1284,22 @@ class DASSApplication:
         """Main data acquisition loop (runs in separate thread)."""
         while self.acquisition_active:
             try:
-                # Read raw data from configured sources
-                raw_data = self._read_data()
+                # Read data from configured sources
+                data = self._read_data()
 
-                if raw_data:
-                    # Apply signal conditioning to each channel
-                    conditioned_data = []
-                    for i, raw_value in enumerate(raw_data):
-                        try:
-                            zero = float(self.channel_zero[i].get())
-                            multiplier = float(self.channel_multiplier[i].get())
-                            gain = float(self.channel_gain[i].get())
-                            # Formula: Display = (Raw + Zero) × Multiplier × Gain
-                            conditioned_value = (raw_value + zero) * multiplier * gain
-                            conditioned_data.append(conditioned_value)
-                        except (ValueError, IndexError):
-                            # If parameters invalid, use raw value
-                            conditioned_data.append(raw_value)
+                if data:
+                    # Log data
+                    self.data_logger.log_data(data)
 
-                    # Log conditioned data
-                    self.data_logger.log_data(conditioned_data)
-
-                    # Update plot (on main thread)
-                    if self.plot_manager:
-                        self.root.after(
-                            0,
-                            lambda d=conditioned_data: self.plot_manager.update_data(d)
-                        )
+                    # Update individual channel plot windows
+                    for i, value in enumerate(data):
+                        if i < len(self.channel_plot_windows):
+                            self.channel_plot_windows[i].update_data(value)
+                            # Refresh plot on main thread
+                            self.root.after(0, self.channel_plot_windows[i].refresh_plot)
 
                     # Update numeric displays (on main thread)
-                    self.root.after(0, lambda d=conditioned_data: self._update_numeric_displays(d))
+                    self.root.after(0, lambda d=data: self._update_numeric_displays(d))
 
                 time.sleep(0.1)  # Acquisition rate
 
@@ -1369,34 +1342,36 @@ class DASSApplication:
         return [random.uniform(0, 100) for _ in range(self.channel_count)]
 
     def _on_print_plot(self) -> None:
-        """Handle print plot button click."""
+        """Handle print plot button click - prints all visible plots."""
         try:
-            if self.plot_manager and self.plot_manager.figure:
-                from matplotlib.backends.backend_pdf import PdfPages
-                import tempfile
-                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
-                    tmp_path = tmp.name
-                with PdfPages(tmp_path) as pdf:
-                    pdf.savefig(self.plot_manager.figure)
-                import platform
-                if platform.system() == 'Windows':
-                    os.startfile(tmp_path, 'print')
-                elif platform.system() == 'Darwin':  # macOS
-                    os.system(f'open {tmp_path}')
-                else:  # Linux
-                    os.system(f'xdg-open {tmp_path}')
-                self._log_message("Plot sent to printer")
+            count = 0
+            for plot_window in self.channel_plot_windows:
+                if plot_window.is_visible and plot_window.figure:
+                    # Simple approach: save each visible plot
+                    from matplotlib.backends.backend_pdf import PdfPages
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+                        tmp_path = tmp.name
+                    with PdfPages(tmp_path) as pdf:
+                        pdf.savefig(plot_window.figure)
+                    import platform
+                    if platform.system() == 'Windows':
+                        os.startfile(tmp_path, 'print')
+                    count += 1
+            if count > 0:
+                self._log_message(f"{count} plot(s) sent to printer")
             else:
-                self.ui_manager.show_info("No Plot", "No plot data available.")
+                self.ui_manager.show_info("No Plots", "No visible plots to print. Open plots first.")
         except Exception as e:
-            self.ui_manager.show_error("Print Error", f"Failed to print plot: {str(e)}")
+            self.ui_manager.show_error("Print Error", f"Failed to print plots: {str(e)}")
             self._log_message(f"Print error: {str(e)}")
 
     def _on_save_plot(self) -> None:
-        """Handle save plot button click."""
+        """Handle save plot button click - saves all visible plots."""
         try:
-            if not self.plot_manager or not self.plot_manager.figure:
-                self.ui_manager.show_info("No Plot", "No plot data available.")
+            visible_plots = [p for p in self.channel_plot_windows if p.is_visible]
+            if not visible_plots:
+                self.ui_manager.show_info("No Plots", "No visible plots to save. Open plots first.")
                 return
 
             filename = filedialog.asksaveasfilename(
@@ -1409,28 +1384,62 @@ class DASSApplication:
                 ]
             )
             if filename:
-                self.plot_manager.figure.savefig(filename, dpi=300, bbox_inches='tight')
-                self._log_message(f"Plot saved to {filename}")
-                self.ui_manager.show_info("Success", "Plot saved successfully")
+                # Save all visible plots with numbered filenames
+                base_name, ext = os.path.splitext(filename)
+                for i, plot_window in enumerate(visible_plots):
+                    if plot_window.figure:
+                        if len(visible_plots) > 1:
+                            save_name = f"{base_name}_ch{plot_window.channel_index+1}{ext}"
+                        else:
+                            save_name = filename
+                        plot_window.figure.savefig(save_name, dpi=300, bbox_inches='tight')
+                self._log_message(f"{len(visible_plots)} plot(s) saved")
+                self.ui_manager.show_info("Success", f"{len(visible_plots)} plot(s) saved successfully")
         except Exception as e:
-            self.ui_manager.show_error("Save Error", f"Failed to save plot: {str(e)}")
+            self.ui_manager.show_error("Save Error", f"Failed to save plots: {str(e)}")
             self._log_message(f"Save error: {str(e)}")
 
     def _on_configure_plot(self) -> None:
-        """Handle configure plot button click."""
-        if not self.plot_manager:
-            self.ui_manager.show_info("No Plot", "No plot available.")
+        """Handle configure plot button click - shows dialog to select which plot to configure."""
+        visible_plots = [p for p in self.channel_plot_windows if p.is_visible]
+        if not visible_plots:
+            self.ui_manager.show_info("No Plots", "No visible plots to configure. Open plots first.")
             return
 
         dialog = tk.Toplevel(self.root)
         dialog.title("Configure Plot")
+        dialog.geometry("400x300")
+
+        tk.Label(dialog, text="Select channel to configure:", font=('Arial', 11, 'bold')).pack(pady=10)
+
+        # List of visible channels
+        listbox = tk.Listbox(dialog, height=8)
+        listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        for plot_window in visible_plots:
+            listbox.insert(tk.END, f"Channel {plot_window.channel_index+1}: {plot_window.channel_name}")
+
+        def configure_selected():
+            selection = listbox.curselection()
+            if not selection:
+                return
+            plot_window = visible_plots[selection[0]]
+            dialog.destroy()
+            self._configure_individual_plot(plot_window)
+
+        tk.Button(dialog, text="Configure", command=configure_selected, width=15).pack(pady=10)
+
+    def _configure_individual_plot(self, plot_window: ChannelPlotWindow) -> None:
+        """Configure an individual plot window."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Configure Channel {plot_window.channel_index+1}")
         dialog.geometry("400x250")
 
         # Title
         tk.Label(dialog, text="Plot Title:").grid(row=0, column=0, padx=10, pady=10, sticky='w')
         title_entry = tk.Entry(dialog, width=30)
         title_entry.grid(row=0, column=1, padx=10, pady=10)
-        title_entry.insert(0, "Data Acquisition - All Channels")
+        title_entry.insert(0, plot_window.channel_name)
 
         # X Label
         tk.Label(dialog, text="X-axis Label:").grid(row=1, column=0, padx=10, pady=10, sticky='w')
@@ -1452,13 +1461,16 @@ class DASSApplication:
 
         # Apply button
         def apply_config():
-            self.plot_manager.configure_plot(
-                title_entry.get(),
-                xlabel_entry.get(),
-                ylabel_entry.get(),
-                grid_var.get()
-            )
-            self._log_message("Plot configuration updated")
+            if plot_window.ax:
+                plot_window.ax.set_title(title_entry.get())
+                plot_window.ax.set_xlabel(xlabel_entry.get())
+                plot_window.ax.set_ylabel(ylabel_entry.get())
+                plot_window.ax.grid(grid_var.get())
+                plot_window.channel_name = title_entry.get()
+                if plot_window.window:
+                    plot_window.window.title(f"Channel {plot_window.channel_index+1}: {title_entry.get()}")
+                plot_window.refresh_plot()
+            self._log_message(f"Channel {plot_window.channel_index+1} plot configuration updated")
             dialog.destroy()
 
         tk.Button(dialog, text="Apply", command=apply_config, width=15).grid(
@@ -1471,10 +1483,53 @@ class DASSApplication:
         self.numeric_display_window.show(self.root, channel_names)
         self._log_message("Numeric display window shown")
 
+    def _on_show_all_plots(self) -> None:
+        """Show all channel plot windows."""
+        for i, plot_window in enumerate(self.channel_plot_windows):
+            if i < len(self.channel_entries):
+                channel_name = self.channel_entries[i].get()
+            else:
+                channel_name = f"Channel_{i+1}"
+            plot_window.channel_name = channel_name
+            plot_window.show(self.root)
+        self._log_message("All plot windows shown")
+
+    def _on_hide_all_plots(self) -> None:
+        """Hide all channel plot windows."""
+        for plot_window in self.channel_plot_windows:
+            plot_window.hide()
+        self._log_message("All plot windows hidden")
+
+    def _toggle_channel_plot(self, channel_index: int) -> None:
+        """
+        Toggle a specific channel's plot window.
+
+        Args:
+            channel_index: Index of the channel
+        """
+        if channel_index < len(self.channel_plot_windows):
+            plot_window = self.channel_plot_windows[channel_index]
+            if channel_index < len(self.channel_entries):
+                channel_name = self.channel_entries[channel_index].get()
+            else:
+                channel_name = f"Channel_{channel_index+1}"
+            plot_window.channel_name = channel_name
+
+            if plot_window.is_visible:
+                plot_window.hide()
+                self._log_message(f"Channel {channel_index+1} plot hidden")
+            else:
+                plot_window.show(self.root)
+                self._log_message(f"Channel {channel_index+1} plot shown")
+
     def _on_closing(self) -> None:
         """Handle window close event."""
         if self.acquisition_active:
             self._on_stop_acquisition()
+
+        # Close all plot windows
+        for plot_window in self.channel_plot_windows:
+            plot_window.close()
 
         # Close numeric display window
         if self.numeric_display_window:
