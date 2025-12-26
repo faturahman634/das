@@ -1080,7 +1080,11 @@ class DASSApplication:
             zero_entry.grid(row=i+1, column=2, padx=3, pady=2)
 
             # Multiplier
-            mult_entry = tk.Entry(scrollable_frame, textvariable=self.channel_multiplier[i], width=10)
+            mult_entry = tk.Entry(
+                scrollable_frame,
+                textvariable=self.channel_multiplier[i],
+                width=10
+            )
             mult_entry.grid(row=i+1, column=3, padx=3, pady=2)
 
             # Gain
@@ -1315,7 +1319,10 @@ class DASSApplication:
 
                     # Update plot (on main thread)
                     if self.plot_manager:
-                        self.root.after(0, lambda d=conditioned_data: self.plot_manager.update_data(d))
+                        self.root.after(
+                            0,
+                            lambda d=conditioned_data: self.plot_manager.update_data(d)
+                        )
 
                     # Update numeric displays (on main thread)
                     self.root.after(0, lambda d=conditioned_data: self._update_numeric_displays(d))
