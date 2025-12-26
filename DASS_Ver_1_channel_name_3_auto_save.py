@@ -569,8 +569,9 @@ class PlotManager:
         self.ax.legend(loc='upper left', fontsize=8)
         self.ax.grid(True, alpha=0.3)
 
-        # Create canvas
+        # Create canvas and draw initial plot
         self.canvas = FigureCanvasTkAgg(self.figure, parent_frame)
+        self.canvas.draw()
 
     def update_data(self, values: List[float]) -> None:
         """
